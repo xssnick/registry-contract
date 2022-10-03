@@ -1,0 +1,211 @@
+;; Verifier registry smart contract
+
+;; message_description#_ verifier_id:uint256 valid_until:uint32 source_addr:MsgAddress target_addr:MsgAddress msg:^Cell = MessageDescription;
+;; message_signatures#_ {n:#} signature:(bits 512) pub_key:uint256 next:^(MessageSignatureData n) = MessageSignatureData (n + 1);
+;; message_signatures_last#_ signature:(bits 512) pub_key:uint256 = MessageSignatureData 1;
+;; forward_message#3df5644b {n:#} query_id:uint64 msg:^MessageDescription signatures:^(MessageSignatureData n) = InternalMsgBody;
+
+;; verifier_settings#_ multi_sig_threshold:uint8 pub_key_endpoints:(HashMapE 256 uint32) = VerifierSettings;
+;; update_verifier#6002d61a query_id:uint64 verifier_id:uint256 settings:VerifierSettings = InternalMsgBody;
+
+;; remove_verifier#19fa5637 query_id:uint64 id:uint256 = InternalMsgBody;
+
+;; verifier#_ admin:MsgAddress settings:VerifierSettings = Verifier;
+;; storage#_ verifiers:(HashMapE 256 Verifier) = Storage;
+
+#pragma version >=0.2.0;
+
+global cell storage::verifiers;
+
+const int op::update_verifier = 0x6002d61a;
+const int op::remove_verifier = 0x19fa5637;
+const int op::forward_message = 0x3df5644b;
+
+const slice EXIT_TEXT       = "Withdrawal and exit from the verifier registry";
+const slice REGISTERED_TEXT = "You were successfully registered as a verifier";
+const slice UPDATED_TEXT    = "You successfully updated verifier data";
+
+const int   EXIT_FEE = 200000000;      ;; 0.20 TON
+const int   STAKE    = 10000000000000; ;; 10000 TON
+
+() save_data() impure {
+    set_data(begin_cell()
+            .store_dict(storage::verifiers)
+            .end_cell());
+}
+
+() load_data() impure {
+    slice data = get_data().begin_parse();
+    storage::verifiers = data~load_dict();
+}
+
+() send_msg(int mode, slice to, int amount, slice comment) impure {
+    var msg = begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(to)
+            .store_coins(amount)
+            .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_ref(begin_cell()
+                    .store_uint(0, 32)
+                    .store_slice(comment)
+                    .end_cell());
+
+    send_raw_message(msg.end_cell(), mode);
+}
+
+() remove_verifier(int id, slice sender_address) impure inline {
+    (slice cfg, int ok) = storage::verifiers.udict_get?(256, id);
+    throw_if(404, ok == 0);
+
+    slice admin = cfg~load_msg_addr();
+    ;; allow only to admin
+    throw_unless(401, equal_slices(sender_address, admin));
+
+    ;; delete from verifiers list
+    (cell verifiers, _) = storage::verifiers.udict_delete?(256, id);
+    storage::verifiers = verifiers;
+    ;; withdraw stake + return excess from message
+    send_msg(64, admin, STAKE - EXIT_FEE, EXIT_TEXT);
+
+    save_data();
+}
+
+() update_verifier(int id, slice new_settings, slice sender_address, int balance, int coins_sent) impure inline {
+    slice admin = sender_address;
+    (slice cfg, int ok) = storage::verifiers.udict_get?(256, id);
+    if (ok) { ;; exists, check is admin
+        admin = cfg~load_msg_addr();
+        ;; allow only to admin
+        throw_unless(401, equal_slices(sender_address, admin));
+
+        ;; return excess, ignore errors
+        send_msg(64 + 2, admin, 0, UPDATED_TEXT);
+    } else {
+        throw_if(410, coins_sent < STAKE);
+
+        ;; reserve stake + balance, excess will be returned, ignore errors
+        raw_reserve(balance - (coins_sent - STAKE), 0);
+        send_msg(128 + 2, admin, 0, REGISTERED_TEXT);
+    }
+
+    slice new_cfg = begin_cell()
+            .store_slice(admin)
+            .store_slice(new_settings)
+            .end_cell().begin_parse();
+
+    storage::verifiers = storage::verifiers.udict_set(256, id, new_cfg);
+
+    save_data();
+}
+
+() forward_message(cell msg, cell signatures, slice sender_address) impure inline {
+    slice msg_data = msg.begin_parse();
+    int verifier_id = msg_data~load_uint(256);
+    int valid_till = msg_data~load_uint(32);
+
+    slice source_addr = msg_data~load_msg_addr();
+    throw_unless(414, equal_slices(sender_address, source_addr));
+
+    (slice verifier, int ok) = storage::verifiers.udict_get?(256, verifier_id);
+    throw_if(404, ok == 0);
+    verifier~load_msg_addr();
+    int quorum = verifier~load_uint(8);
+    cell pub_key_endpoints = verifier.preload_dict();
+
+    ;; check msg ttl
+    throw_if(411, valid_till < now());
+
+    int valid_signatures = 0;
+    int msg_hash = msg.cell_hash();
+    int done = 0;
+    while (done == 0) {
+        slice s = signatures.begin_parse();
+        slice sign = s~load_bits(512);
+        int key = s~load_uint(256);
+
+        ;; check key in dict and remove to not allow reuse in current context for more signatures
+        (cell updated_list, _, int known) = pub_key_endpoints.udict_delete_get?(256, key);
+        if (known & check_signature(msg_hash, sign, key)) {
+            valid_signatures += 1;
+            pub_key_endpoints = updated_list;
+        }
+
+        if ((valid_signatures >= quorum) | (s.slice_refs() == 0)) {
+            done = 1;
+        } else {
+            signatures = s.preload_ref();
+        }
+    }
+
+    throw_if(413, valid_signatures < quorum);
+
+    slice target_addr = msg_data~load_msg_addr();
+    cell payload_to_forward = msg_data~load_ref();
+
+    send_raw_message( begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(target_addr)
+            .store_coins(0)
+            .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_ref(payload_to_forward).end_cell(), 64);
+
+    save_data();
+}
+
+() recv_internal(int balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) { ;; ignore empty messages
+        return ();
+    }
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+
+    if (flags & 1) { ;; ignore all bounced messages
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    load_data();
+
+    if (op == op::forward_message) {
+        cell msg = in_msg_body~load_ref();
+        cell signatures = in_msg_body~load_ref();
+
+        forward_message(msg, signatures, sender_address);
+        return ();
+    }
+    if (op == op::update_verifier) {
+        int id = in_msg_body~load_uint(256);
+        slice new_settings = in_msg_body;
+
+        ;; validation
+        in_msg_body~load_uint(8); ;; quorum
+        in_msg_body~load_dict(); ;; pub_key_endpoints
+        in_msg_body.end_parse();
+
+        update_verifier(id, new_settings, sender_address, balance, msg_value);
+        return ();
+    }
+    if (op == op::remove_verifier) {
+        int id = in_msg_body~load_uint(256);
+
+        remove_verifier(id, sender_address);
+        return ();
+    }
+    throw(0xffff);
+}
+
+(slice, cell, int) get_verifier(int id) method_id {
+    load_data();
+
+    (slice cfg, int ok) = storage::verifiers.udict_get?(256, id);
+    if (ok == 0) {
+        return (begin_cell().end_cell().begin_parse(), begin_cell().end_cell(), 0);
+    }
+
+    slice admin = cfg~load_msg_addr();
+    cell settings = begin_cell().store_slice(cfg).end_cell();
+    return (admin, settings, -1);
+}
