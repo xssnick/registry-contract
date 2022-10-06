@@ -1,9 +1,8 @@
 import {SmartContract} from "ton-contract-executor";
 import {buildRegistryDataCell, RegistryData} from "./RegistryData";
-import {RegistrySource} from "./RegistrySource";
 import {Address, Cell, contractAddress, Slice, toNano} from "ton";
 import BN from "bn.js";
-import {compileFunc} from "../../utils/compileFunc";
+import { hex } from "../../../build/registry.compiled.json";
 
 export class RegistryLocal {
     private constructor(
@@ -44,10 +43,11 @@ export class RegistryLocal {
     //
 
     static async createFromConfig(config: RegistryData) {
-        let code = await compileFunc(RegistrySource)
+        // let code = await compileFunc(RegistrySource)
+        // console.log(code.cell.toBoc({idx:false}).toString('base64'))
 
         let data = buildRegistryDataCell(config)
-        let contract = await SmartContract.fromCell(code.cell, data, {
+        let contract = await SmartContract.fromCell(Cell.fromBoc(hex)[0], data, {
             debug: true
         })
         let address = contractAddress({

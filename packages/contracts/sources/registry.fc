@@ -1,25 +1,14 @@
 ;; Verifier registry smart contract
 
-;; message_description#_ verifier_id:uint256 valid_until:uint32 source_addr:MsgAddress target_addr:MsgAddress msg:^Cell = MessageDescription;
-;; message_signatures#_ {n:#} signature:(bits 512) pub_key:uint256 next:^(MessageSignatureData n) = MessageSignatureData (n + 1);
-;; message_signatures_last#_ signature:(bits 512) pub_key:uint256 = MessageSignatureData 1;
-;; forward_message#3df5644b {n:#} query_id:uint64 msg:^MessageDescription signatures:^(MessageSignatureData n) = InternalMsgBody;
-
-;; verifier_settings#_ multi_sig_threshold:uint8 pub_key_endpoints:(HashMapE 256 uint32) = VerifierSettings;
-;; update_verifier#6002d61a query_id:uint64 verifier_id:uint256 settings:VerifierSettings = InternalMsgBody;
-
-;; remove_verifier#19fa5637 query_id:uint64 id:uint256 = InternalMsgBody;
-
-;; verifier#_ admin:MsgAddress settings:VerifierSettings = Verifier;
-;; storage#_ verifiers:(HashMapE 256 Verifier) = Storage;
-
 #pragma version >=0.2.0;
+
+#include "imports/stdlib.fc";
 
 global cell storage::verifiers;
 
 const int op::update_verifier = 0x6002d61a;
 const int op::remove_verifier = 0x19fa5637;
-const int op::forward_message = 0x3df5644b;
+const int op::forward_message = 0x75217758;
 
 const slice EXIT_TEXT       = "Withdrawal and exit from the verifier registry";
 const slice REGISTERED_TEXT = "You were successfully registered as a verifier";

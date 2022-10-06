@@ -43,7 +43,7 @@ export function buildRegistryDataCell(data: RegistryData) {
 export const OperationCodes = {
     removeVerifier: 0x19fa5637,
     updateVerifier: 0x6002d61a,
-    forwardMessage: 0x3df5644b,
+    forwardMessage: 0x75217758,
 }
 
 export type CollectionMintItemInput = {

@@ -16,6 +16,7 @@ import BN from "bn.js";
 import {randomKeyPair} from "../../utils/randomKeyPair";
 import {beginCell} from "ton/dist";
 import {sign} from "ton-crypto";
+import {createHash} from "crypto";
 
 const ADMIN1_ADDRESS = randomAddress()
 
@@ -27,13 +28,13 @@ async function genDefaultConfig() {
         keys: [kp,kp2,kp3],
         data: {
             verifiers: new Map<BN, Verifier>([
-                [new BN(222), {
+                [sha256BN("verifier1"), {
                     admin: ADMIN1_ADDRESS,
                     quorum: 2,
                     pub_key_endpoints: new Map<BN, number>([
-                        [new BN(kp.publicKey), 999],
-                        [new BN(kp2.publicKey), 555],
-                        [new BN(kp3.publicKey), 1212]
+                        [new BN(kp.publicKey), ip2num("1.2.3.0")],
+                        [new BN(kp2.publicKey), ip2num("1.2.3.1")],
+                        [new BN(kp3.publicKey), ip2num("1.2.3.2")]
                     ])
                 }]
             ])
@@ -42,58 +43,6 @@ async function genDefaultConfig() {
 }
 
 describe('registry smc', () => {
-    it('should add new verifier', async () => {
-        let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
-        let user = randomAddress();
-
-        let kp3 = await randomKeyPair()
-
-        let res = await contract.contract.sendInternalMessage(new InternalMessage({
-            to: contract.address,
-            from: user,
-            value: toNano(10005),
-            bounce: false,
-            body: new CommonMessageInfo({
-                body: new CellMessage(
-                    Queries.updateVerifier({
-                        id: new BN(123),
-                        quorum: 7,
-                        endpoints: new Map<BN, number>([
-                            [new BN(kp3.publicKey), 321]
-                        ]),
-                    }))
-            }),
-        }))
-
-        expect(res.exit_code).toEqual(0)
-        expect(res.type).toEqual("success")
-
-        let data = await contract.getVerifier(new BN(123));
-        let sets = (data.settings as Cell).beginParse()
-        let quorum = sets.readUint(8);
-        let settings = sets.readDict<number>(256, function (slice) {
-            return slice.readUint(32).toNumber();
-        });
-        let ip = settings.get(new BN(kp3.publicKey).toString());
-
-        console.log(res.gas_consumed)
-        expect(data.admin?.toFriendly()).toEqual(user.toFriendly())
-        expect(ip).toEqual(321)
-        expect(quorum.toNumber()).toEqual(7)
-
-        let reserve = res.actionList[0] as ReserveCurrencyAction
-        expect(reserve.currency.coins.toNumber()).toEqual(toNano(1 + 10000).toNumber())
-
-        let excess = res.actionList[1] as SendMsgAction
-        expect(excess.message.info.dest?.toFriendly()).toEqual(user.toFriendly())
-        expect(excess.mode).toEqual(128 + 2)
-
-        let body = excess.message.body.beginParse();
-        expect(body.readUint(32).toNumber()).toEqual(0)
-        expect(body.readBuffer(body.remaining/8).toString()).toEqual("You were successfully registered as a verifier")
-    })
-
     it('should update verifier', async () => {
         let cfg = await genDefaultConfig()
         let contract = await RegistryLocal.createFromConfig(cfg.data)
@@ -108,10 +57,10 @@ describe('registry smc', () => {
             body: new CommonMessageInfo({
                 body: new CellMessage(
                     Queries.updateVerifier({
-                        id: new BN(222),
+                        id: sha256BN("verifier1"),
                         quorum: 7,
                         endpoints: new Map<BN, number>([
-                            [new BN(kp3.publicKey), 321]
+                            [new BN(kp3.publicKey), ip2num("10.0.0.1")]
                         ]),
                     }))
             }),
@@ -120,7 +69,7 @@ describe('registry smc', () => {
         expect(res.exit_code).toEqual(0)
         expect(res.type).toEqual("success")
 
-        let data = await contract.getVerifier(new BN(222));
+        let data = await contract.getVerifier(sha256BN("verifier1"));
         let sets = (data.settings as Cell).beginParse();
         let quorum = sets.readUint(8);
         let settings = sets.readDict<number>(256, function (slice) {
@@ -130,7 +79,7 @@ describe('registry smc', () => {
 
         console.log(res.gas_consumed)
         expect(data.admin?.toFriendly()).toEqual(ADMIN1_ADDRESS.toFriendly())
-        expect(ip).toEqual(321)
+        expect(ip).toEqual(ip2num("10.0.0.1"))
         expect(quorum.toNumber()).toEqual(7)
 
         let excess = res.actionList[0] as SendMsgAction
@@ -156,10 +105,10 @@ describe('registry smc', () => {
             body: new CommonMessageInfo({
                 body: new CellMessage(
                     Queries.updateVerifier({
-                        id: new BN(222),
+                        id: sha256BN("verifier1"),
                         quorum: 7,
                         endpoints: new Map<BN, number>([
-                            [new BN(kp3.publicKey), 321]
+                            [new BN(kp3.publicKey), ip2num("10.0.0.1")]
                         ]),
                     }))
             }),
@@ -185,7 +134,7 @@ describe('registry smc', () => {
                         id: new BN(223),
                         quorum: 7,
                         endpoints: new Map<BN, number>([
-                            [new BN(kp3.publicKey), 321]
+                            [new BN(kp3.publicKey), ip2num("10.0.0.1")]
                         ]),
                     }))
             }),
@@ -206,7 +155,7 @@ describe('registry smc', () => {
             body: new CommonMessageInfo({
                 body: new CellMessage(
                     Queries.removeVerifier({
-                        id: new BN(222),
+                        id: sha256BN("verifier1"),
                     }))
             }),
         }))
@@ -226,7 +175,7 @@ describe('registry smc', () => {
         expect(body.readUint(32).toNumber()).toEqual(0)
         expect(body.readBuffer(body.remaining/8).toString()).toEqual("Withdrawal and exit from the verifier registry")
 
-        let data = await contract.getVerifier(new BN(222));
+        let data = await contract.getVerifier(sha256BN("verifier1"));
         expect(data.settings).toEqual(null)
     })
 
@@ -242,7 +191,7 @@ describe('registry smc', () => {
             body: new CommonMessageInfo({
                 body: new CellMessage(
                     Queries.removeVerifier({
-                        id: new BN(222),
+                        id: sha256BN("verifier1"),
                     }))
             }),
         }))
@@ -277,7 +226,7 @@ describe('registry smc', () => {
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
 
-        let desc = buildMsgDescription(new BN(222), 1500, src, dst, msgBody)
+        let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody)
 
         let res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -313,7 +262,7 @@ describe('registry smc', () => {
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
 
-        let desc = buildMsgDescription(new BN(222), 1500, src, dst, msgBody)
+        let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody)
 
         let res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -350,7 +299,7 @@ describe('registry smc', () => {
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
 
-        let desc = buildMsgDescription(new BN(222), 1500, src, dst, msgBody)
+        let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody)
 
         let res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -377,7 +326,7 @@ describe('registry smc', () => {
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
 
-        let desc = buildMsgDescription(new BN(222), 1500, src, dst, msgBody)
+        let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody)
 
         let res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -405,7 +354,7 @@ describe('registry smc', () => {
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
 
-        let desc = buildMsgDescription(new BN(222), 1500, src, dst, msgBody)
+        let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody)
 
         let res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -432,7 +381,7 @@ describe('registry smc', () => {
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
 
-        let desc = buildMsgDescription(new BN(222), 1500, src, dst, msgBody)
+        let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody)
 
         let res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -460,7 +409,7 @@ describe('registry smc', () => {
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
 
-        let desc = buildMsgDescription(new BN(222), 999, src, dst, msgBody)
+        let desc = buildMsgDescription(sha256BN("verifier1"), 999, src, dst, msgBody)
 
         let res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -488,7 +437,7 @@ describe('registry smc', () => {
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
 
-        let desc = buildMsgDescription(new BN(222), 1500, randomAddress(), dst, msgBody)
+        let desc = buildMsgDescription(sha256BN("verifier1"), 1500, randomAddress(), dst, msgBody)
 
         let res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -552,10 +501,10 @@ describe('registry smc', () => {
             body: new CommonMessageInfo({
                 body: new CellMessage(
                     Queries.updateVerifier({
-                        id: new BN(123),
+                        id: sha256BN("verifier2"),
                         quorum: 7,
                         endpoints: new Map<BN, number>([
-                            [new BN(kp3.publicKey), 321]
+                            [new BN(kp3.publicKey), ip2num("10.0.0.1")]
                         ]),
                     }))
             }),
@@ -564,7 +513,7 @@ describe('registry smc', () => {
         expect(res.exit_code).toEqual(0)
         expect(res.type).toEqual("success")
 
-        let data = await contract.getVerifier(new BN(123));
+        let data = await contract.getVerifier(sha256BN("verifier2"));
         let sets = (data.settings as Cell).beginParse()
         let quorum = sets.readUint(8);
         let settings = sets.readDict<number>(256, function (slice) {
@@ -574,7 +523,7 @@ describe('registry smc', () => {
 
         console.log(res.gas_consumed)
         expect(data.admin?.toFriendly()).toEqual(user.toFriendly())
-        expect(ip).toEqual(321)
+        expect(ip).toEqual(ip2num("10.0.0.1"))
         expect(quorum.toNumber()).toEqual(7)
 
         let reserve = res.actionList[0] as ReserveCurrencyAction
@@ -605,10 +554,10 @@ describe('registry smc', () => {
             body: new CommonMessageInfo({
                 body: new CellMessage(
                     Queries.updateVerifier({
-                        id: new BN(123),
+                        id: sha256BN("verifier2"),
                         quorum: 7,
                         endpoints: new Map<BN, number>([
-                            [new BN(kp3.publicKey), 321]
+                            [new BN(kp3.publicKey), ip2num("10.0.0.1")]
                         ]),
                     }))
             }),
@@ -617,7 +566,7 @@ describe('registry smc', () => {
         expect(res.exit_code).toEqual(0)
         expect(res.type).toEqual("success")
 
-        let data = await contract.getVerifier(new BN(123));
+        let data = await contract.getVerifier(sha256BN("verifier2"));
         let sets = (data.settings as Cell).beginParse()
         let quorum = sets.readUint(8);
         let settings = sets.readDict<number>(256, function (slice) {
@@ -625,7 +574,7 @@ describe('registry smc', () => {
         });
         let ip = settings.get(new BN(kp3.publicKey).toString());
 
-        expect(ip).toEqual(321)
+        expect(ip).toEqual(ip2num("10.0.0.1"))
         expect(quorum.toNumber()).toEqual(7)
 
         // update
@@ -637,16 +586,16 @@ describe('registry smc', () => {
             body: new CommonMessageInfo({
                 body: new CellMessage(
                     Queries.updateVerifier({
-                        id: new BN(123),
+                        id: sha256BN("verifier2"),
                         quorum: 1,
                         endpoints: new Map<BN, number>([
-                            [new BN(kp3.publicKey), 3212]
+                            [new BN(kp3.publicKey), ip2num("10.0.0.2")]
                         ]),
                     }))
             }),
         }))
 
-        data = await contract.getVerifier(new BN(123));
+        data = await contract.getVerifier(sha256BN("verifier2"));
         sets = (data.settings as Cell).beginParse()
         quorum = sets.readUint(8);
         settings = sets.readDict<number>(256, function (slice) {
@@ -654,7 +603,7 @@ describe('registry smc', () => {
         });
         ip = settings.get(new BN(kp3.publicKey).toString());
 
-        expect(ip).toEqual(3212)
+        expect(ip).toEqual(ip2num("10.0.0.2"))
         expect(quorum.toNumber()).toEqual(1)
 
         // forward
@@ -662,7 +611,7 @@ describe('registry smc', () => {
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
 
-        let desc = buildMsgDescription(new BN(123), 1500, src, dst, msgBody)
+        let desc = buildMsgDescription(sha256BN("verifier2"), 1500, src, dst, msgBody)
 
         res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -694,7 +643,7 @@ describe('registry smc', () => {
             body: new CommonMessageInfo({
                 body: new CellMessage(
                     Queries.removeVerifier({
-                        id: new BN(123),
+                        id: sha256BN("verifier2"),
                     }))
             }),
         }))
@@ -721,3 +670,12 @@ describe('registry smc', () => {
         expect(res.exit_code).toEqual(404)
     })
 })
+
+function sha256BN(name:string) {
+    return new BN(createHash('sha256').update(name).digest());
+}
+
+function ip2num(ip:string) {
+    let d = ip.split('.');
+    return ((((((+d[0])*256)+(+d[1]))*256)+(+d[2]))*256)+(+d[3]);
+}
