@@ -45,7 +45,7 @@ async function genDefaultConfig() {
 describe('registry smc', () => {
     it('should update verifier', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
 
         let kp3 = await randomKeyPair()
 
@@ -93,7 +93,7 @@ describe('registry smc', () => {
 
     it('should not update verifier', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
 
         let kp3 = await randomKeyPair()
 
@@ -119,7 +119,7 @@ describe('registry smc', () => {
 
     it('should not add verifier', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
 
         let kp3 = await randomKeyPair()
 
@@ -145,7 +145,7 @@ describe('registry smc', () => {
 
     it('should remove verifier', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
 
         let res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -181,7 +181,7 @@ describe('registry smc', () => {
 
     it('should not remove verifier', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
 
         let res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -201,7 +201,7 @@ describe('registry smc', () => {
 
     it('should not remove verifier, not found', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
 
         let res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -221,7 +221,7 @@ describe('registry smc', () => {
 
     it('should forward message', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
         let src = randomAddress();
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
@@ -257,7 +257,7 @@ describe('registry smc', () => {
 
     it('should forward message, 2 out of 3 correct, quorum = 2', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
         let src = randomAddress();
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
@@ -294,7 +294,7 @@ describe('registry smc', () => {
 
     it('should not forward message, 1 sign of 2', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
         let src = randomAddress();
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
@@ -321,7 +321,7 @@ describe('registry smc', () => {
 
     it('should not forward message, 2 same signs', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
         let src = randomAddress();
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
@@ -349,7 +349,7 @@ describe('registry smc', () => {
 
     it('should not forward message, no signs', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
         let src = randomAddress();
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
@@ -376,7 +376,7 @@ describe('registry smc', () => {
 
     it('should not forward message, 2 signs, 1 invalid', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
         let src = randomAddress();
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
@@ -404,7 +404,7 @@ describe('registry smc', () => {
 
     it('should not forward message, expired', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
         let src = randomAddress();
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
@@ -432,7 +432,7 @@ describe('registry smc', () => {
 
     it('should not forward message, wrong sender', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
         let src = randomAddress();
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
@@ -460,7 +460,7 @@ describe('registry smc', () => {
 
     it('should not forward message, unknown verifier', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
         let src = randomAddress();
         let dst = randomAddress();
         let msgBody = beginCell().storeUint(777, 32).endCell();
@@ -488,7 +488,7 @@ describe('registry smc', () => {
 
     it('should add new verifier', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
         let user = randomAddress();
 
         let kp3 = await randomKeyPair()
@@ -526,21 +526,49 @@ describe('registry smc', () => {
         expect(ip).toEqual(ip2num("10.0.0.1"))
         expect(quorum.toNumber()).toEqual(7)
 
-        let reserve = res.actionList[0] as ReserveCurrencyAction
-        expect(reserve.currency.coins.toNumber()).toEqual(toNano(1 + 10000).toNumber())
-
-        let excess = res.actionList[1] as SendMsgAction
+        let excess = res.actionList[0] as SendMsgAction
         expect(excess.message.info.dest?.toFriendly()).toEqual(user.toFriendly())
-        expect(excess.mode).toEqual(128 + 2)
+        expect(excess.message.info.type).toEqual("internal")
+        if (excess.message.info.type === "internal") {
+            expect(excess.message.info.value.coins.toNumber()).toEqual(toNano(5).toNumber())
+        }
+        expect(excess.mode).toEqual(2)
 
         let body = excess.message.body.beginParse();
         expect(body.readUint(32).toNumber()).toEqual(0)
         expect(body.readBuffer(body.remaining/8).toString()).toEqual("You were successfully registered as a verifier")
     })
 
+    it('should not add new verifier, 100 limit', async () => {
+        let cfg = await genDefaultConfig()
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 100)
+        let user = randomAddress();
+
+        let kp3 = await randomKeyPair()
+
+        let res = await contract.contract.sendInternalMessage(new InternalMessage({
+            to: contract.address,
+            from: user,
+            value: toNano(10005),
+            bounce: false,
+            body: new CommonMessageInfo({
+                body: new CellMessage(
+                    Queries.updateVerifier({
+                        id: sha256BN("verifier2"),
+                        quorum: 7,
+                        endpoints: new Map<BN, number>([
+                            [new BN(kp3.publicKey), ip2num("10.0.0.1")]
+                        ]),
+                    }))
+            }),
+        }))
+
+        expect(res.exit_code).toEqual(419)
+    })
+
     it('full scenario', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 1)
         let user = randomAddress();
 
         let kp3 = await randomKeyPair()
@@ -577,6 +605,9 @@ describe('registry smc', () => {
         expect(ip).toEqual(ip2num("10.0.0.1"))
         expect(quorum.toNumber()).toEqual(7)
 
+        let verifiersNum = await contract.getVerifiersNum();
+        expect(verifiersNum).toEqual(2)
+
         // update
         res = await contract.contract.sendInternalMessage(new InternalMessage({
             to: contract.address,
@@ -605,6 +636,9 @@ describe('registry smc', () => {
 
         expect(ip).toEqual(ip2num("10.0.0.2"))
         expect(quorum.toNumber()).toEqual(1)
+
+        verifiersNum = await contract.getVerifiersNum();
+        expect(verifiersNum).toEqual(2)
 
         // forward
         let src = randomAddress();
@@ -649,6 +683,9 @@ describe('registry smc', () => {
         }))
 
         expect(res.exit_code).toEqual(0)
+
+        verifiersNum = await contract.getVerifiersNum();
+        expect(verifiersNum).toEqual(1)
 
         // should not forward
 

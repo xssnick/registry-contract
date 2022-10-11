@@ -5,6 +5,7 @@
 #include "imports/stdlib.fc";
 
 global cell storage::verifiers;
+global int storage::verifiers_num;
 
 const int op::update_verifier = 0x6002d61a;
 const int op::remove_verifier = 0x19fa5637;
@@ -20,12 +21,14 @@ const int   STAKE    = 10000000000000; ;; 10000 TON
 () save_data() impure {
     set_data(begin_cell()
             .store_dict(storage::verifiers)
+            .store_uint(storage::verifiers_num,8)
             .end_cell());
 }
 
 () load_data() impure {
     slice data = get_data().begin_parse();
     storage::verifiers = data~load_dict();
+    storage::verifiers_num = data~load_uint(8);
 }
 
 () send_msg(int mode, slice to, int amount, slice comment) impure {
@@ -53,6 +56,8 @@ const int   STAKE    = 10000000000000; ;; 10000 TON
     ;; delete from verifiers list
     (cell verifiers, _) = storage::verifiers.udict_delete?(256, id);
     storage::verifiers = verifiers;
+    storage::verifiers_num -= 1;
+
     ;; withdraw stake + return excess from message
     send_msg(64, admin, STAKE - EXIT_FEE, EXIT_TEXT);
 
@@ -71,10 +76,12 @@ const int   STAKE    = 10000000000000; ;; 10000 TON
         send_msg(64 + 2, admin, 0, UPDATED_TEXT);
     } else {
         throw_if(410, coins_sent < STAKE);
+        throw_if(419, storage::verifiers_num >= 100);
 
-        ;; reserve stake + balance, excess will be returned, ignore errors
-        raw_reserve(balance - (coins_sent - STAKE), 0);
-        send_msg(128 + 2, admin, 0, REGISTERED_TEXT);
+        ;; return excess, ignore errors
+        send_msg(2, admin, coins_sent - STAKE, REGISTERED_TEXT);
+
+        storage::verifiers_num += 1;
     }
 
     slice new_cfg = begin_cell()
@@ -197,4 +204,10 @@ const int   STAKE    = 10000000000000; ;; 10000 TON
     slice admin = cfg~load_msg_addr();
     cell settings = begin_cell().store_slice(cfg).end_cell();
     return (admin, settings, -1);
+}
+
+int get_verifiers_num() method_id {
+    load_data();
+
+    return storage::verifiers_num;
 }

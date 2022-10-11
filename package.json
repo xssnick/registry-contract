@@ -5,7 +5,8 @@
   "main": "index.js",
   "author": "Oleg Baranov <xssnick8@gmail.com>",
   "scripts": {
-    "build": "ts-node compile.ts"
+    "build": "ts-node compile.ts",
+    "deploy": "ts-node deploy.ts"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.0",
@@ -17,7 +18,9 @@
   },
   "dependencies": {
     "@types/uuid": "^8.3.4",
+    "axios-request-throttle": "^1.0.0",
     "bn.js": "^5.2.1",
+    "dotenv": "^16.0.3",
     "fast-glob": "^3.2.12",
     "semver": "^7.3.8",
     "ton": "^11.18.2",

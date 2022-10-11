@@ -20,7 +20,7 @@ export async function generateCodeAndData(cfg:RegistryData) {
     console.log("data:\n"+collection.contract.dataCell.toBoc({idx: false}).toString('hex'))
 }
 
-export function buildRegistryDataCell(data: RegistryData) {
+export function buildRegistryDataCell(data: RegistryData, num?:number) {
     let dataCell = beginCell()
     let e = beginDict(256);
     data.verifiers.forEach(function (val: Verifier, key: BN) {
@@ -35,7 +35,11 @@ export function buildRegistryDataCell(data: RegistryData) {
         e.storeCell(key, x.endCell());
     })
 
-    dataCell.storeDict(e.endDict())
+    if (num === undefined) {
+        num = 0;
+    }
+
+    dataCell.storeDict(e.endDict()).storeUint(num,8)
 
     return dataCell.endCell()
 }

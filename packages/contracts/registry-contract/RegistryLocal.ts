@@ -38,15 +38,22 @@ export class RegistryLocal {
         }
     }
 
+    async getVerifiersNum(): Promise<number> {
+        let res = await this.contract.invokeGetMethod('get_verifiers_num', [])
+        if (res.exit_code !== 0) {
+            throw new Error(`Unable to invoke get_verifier on contract`)
+        }
+        let [num] = res.result as [BN];
+
+        return num.toNumber()
+    }
+
     //
     // Internal messages
     //
 
-    static async createFromConfig(config: RegistryData) {
-        // let code = await compileFunc(RegistrySource)
-        // console.log(code.cell.toBoc({idx:false}).toString('base64'))
-
-        let data = buildRegistryDataCell(config)
+    static async createFromConfig(config: RegistryData, num?:number) {
+        let data = buildRegistryDataCell(config,num)
         let contract = await SmartContract.fromCell(Cell.fromBoc(hex)[0], data, {
             debug: true
         })
