@@ -11,6 +11,7 @@ message_signatures#_ {n:#} signature:(bits 512) pub_key:uint256 next:^(MessageSi
 message_signatures_last#_ signature:(bits 512) pub_key:uint256 = MessageSignatureData 1;
 forward_message#75217758 {n:#} query_id:uint64 msg:^MessageDescription signatures:^(MessageSignatureData n) = InternalMsgBody;
 
+text#_ b:bits = TextCell;
 verifier_settings#_ multi_sig_threshold:uint8 pub_key_endpoints:(HashMapE 256 uint32) name:^(TextCell) marketing_url:^(TextCell) = VerifierSettings;
 update_verifier#6002d61a query_id:uint64 verifier_id:uint256 settings:VerifierSettings = InternalMsgBody;
 
