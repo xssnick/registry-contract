@@ -7,6 +7,8 @@
 global cell storage::verifiers;
 global int storage::verifiers_num;
 
+const int const::max_verifiers = 20;
+
 const int op::update_verifier = 0x6002d61a;
 const int op::remove_verifier = 0x19fa5637;
 const int op::forward_message = 0x75217758;
@@ -76,7 +78,7 @@ const int   STAKE    = 10000000000000; ;; 10000 TON
         send_msg(64 + 2, admin, 0, UPDATED_TEXT);
     } else {
         throw_if(410, coins_sent < STAKE);
-        throw_if(419, storage::verifiers_num >= 100);
+        throw_if(419, storage::verifiers_num >= const::max_verifiers);
 
         ;; return excess
         send_msg(1, admin, coins_sent - STAKE, REGISTERED_TEXT);
@@ -179,6 +181,9 @@ const int   STAKE    = 10000000000000; ;; 10000 TON
         ;; validation
         in_msg_body~load_uint(8); ;; quorum
         in_msg_body~load_dict(); ;; pub_key_endpoints
+        slice name_ref = in_msg_body~load_ref().begin_parse(); ;; name
+        throw_unless(420, string_hash(name_ref) == id);
+        in_msg_body~load_ref(); ;; url ref
         in_msg_body.end_parse();
 
         update_verifier(id, new_settings, sender_address, balance, msg_value);
@@ -210,4 +215,9 @@ int get_verifiers_num() method_id {
     load_data();
 
     return storage::verifiers_num;
+}
+
+(slice) get_verifiers() method_id {
+    load_data();
+    return begin_cell().store_dict(storage::verifiers).end_cell().begin_parse();
 }
