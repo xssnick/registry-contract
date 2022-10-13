@@ -67,8 +67,6 @@ export class RegistryLocal {
      const quorom = v.readUint(8).toNumber();
      const pubKeyEndpoints = v.readDict(256, s => s.readUint(32).toNumber());
      
-     console.log("S1", new BN(pubKeyEndpoints.keys().next().value, 10))
-     console.log("S2", pubKeyEndpoints.keys().next().value)
 
       return {
         admin: admin,
