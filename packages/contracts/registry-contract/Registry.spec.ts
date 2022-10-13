@@ -542,7 +542,7 @@ describe('registry smc', () => {
         if (excess.message.info.type === "internal") {
             expect(excess.message.info.value.coins.toNumber()).toEqual(toNano(5).toNumber())
         }
-        expect(excess.mode).toEqual(2)
+        expect(excess.mode).toEqual(1)
 
         let body = excess.message.body.beginParse();
         expect(body.readUint(32).toNumber()).toEqual(0)
