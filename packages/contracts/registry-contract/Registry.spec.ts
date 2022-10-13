@@ -31,11 +31,13 @@ async function genDefaultConfig() {
                 [sha256BN("verifier1"), {
                     admin: ADMIN1_ADDRESS,
                     quorum: 2,
+                    name: "verifier1",
                     pub_key_endpoints: new Map<BN, number>([
                         [new BN(kp.publicKey), ip2num("1.2.3.0")],
                         [new BN(kp2.publicKey), ip2num("1.2.3.1")],
                         [new BN(kp3.publicKey), ip2num("1.2.3.2")]
-                    ])
+                    ]),
+                    marketingUrl: "https://myverifier.com"
                 }]
             ])
         } as RegistryData,
@@ -62,6 +64,8 @@ describe('registry smc', () => {
                         endpoints: new Map<BN, number>([
                             [new BN(kp3.publicKey), ip2num("10.0.0.1")]
                         ]),
+                        name: "verifier1",
+                        marketingUrl: "https://myverifier.com"
                     }))
             }),
         }))
@@ -110,6 +114,8 @@ describe('registry smc', () => {
                         endpoints: new Map<BN, number>([
                             [new BN(kp3.publicKey), ip2num("10.0.0.1")]
                         ]),
+                        name: "verifier1",
+                        marketingUrl: "https://myverifier.com"
                     }))
             }),
         }))
@@ -131,11 +137,13 @@ describe('registry smc', () => {
             body: new CommonMessageInfo({
                 body: new CellMessage(
                     Queries.updateVerifier({
-                        id: new BN(223),
+                        id: sha256BN("verifier_new"),
                         quorum: 7,
                         endpoints: new Map<BN, number>([
                             [new BN(kp3.publicKey), ip2num("10.0.0.1")]
                         ]),
+                        name: "verifier_new",
+                        marketingUrl: "https://myverifier.com"
                     }))
             }),
         }))
@@ -506,6 +514,8 @@ describe('registry smc', () => {
                         endpoints: new Map<BN, number>([
                             [new BN(kp3.publicKey), ip2num("10.0.0.1")]
                         ]),
+                        name: "verifier2",
+                        marketingUrl: "https://myverifier.com"
                     }))
             }),
         }))
@@ -537,15 +547,11 @@ describe('registry smc', () => {
         let body = excess.message.body.beginParse();
         expect(body.readUint(32).toNumber()).toEqual(0)
         expect(body.readBuffer(body.remaining/8).toString()).toEqual("You were successfully registered as a verifier")
+    });
 
-        const a = await contract.getVerifiers()
-        console.log(a, "shahar");
-
-    })
-
-    it('should not add new verifier, 100 limit', async () => {
+    it('should not add new verifier, 20 limit', async () => {
         let cfg = await genDefaultConfig()
-        let contract = await RegistryLocal.createFromConfig(cfg.data, 100)
+        let contract = await RegistryLocal.createFromConfig(cfg.data, 20)
         let user = randomAddress();
 
         let kp3 = await randomKeyPair()
@@ -563,6 +569,8 @@ describe('registry smc', () => {
                         endpoints: new Map<BN, number>([
                             [new BN(kp3.publicKey), ip2num("10.0.0.1")]
                         ]),
+                        name: "verifier2",
+                        marketingUrl: "https://myverifier.com"
                     }))
             }),
         }))
@@ -591,6 +599,8 @@ describe('registry smc', () => {
                         endpoints: new Map<BN, number>([
                             [new BN(kp3.publicKey), ip2num("10.0.0.1")]
                         ]),
+                        name: "verifier2",
+                        marketingUrl: "https://myverifier.com"
                     }))
             }),
         }))
@@ -626,6 +636,8 @@ describe('registry smc', () => {
                         endpoints: new Map<BN, number>([
                             [new BN(kp3.publicKey), ip2num("10.0.0.2")]
                         ]),
+                        name: "verifier2",
+                        marketingUrl: "https://myverifier.com"
                     }))
             }),
         }))
@@ -710,6 +722,50 @@ describe('registry smc', () => {
 
         expect(res.exit_code).toEqual(404)
     })
+
+    it('should retrieve verifiers data', async () => {
+        let contract = await RegistryLocal.createFromConfig({verifiers: new Map()}, 0);
+        let user = randomAddress();
+
+        let kp3 = await randomKeyPair()
+
+        const verifierConfig = [["verifier1", "http://verifier1.com"], ["verifier2", "http://verifier2.com"], ["verifier3", "http://verifier3.com"]];
+
+        for (const [name, url] of verifierConfig) {
+            await contract.contract.sendInternalMessage(new InternalMessage({
+                to: contract.address,
+                from: user,
+                value: toNano(10005),
+                bounce: false,
+                body: new CommonMessageInfo({
+                    body: new CellMessage(
+                        Queries.updateVerifier({
+                            id: sha256BN(name),
+                            quorum: 7,
+                            endpoints: new Map<BN, number>([
+                                [new BN(kp3.publicKey), ip2num("10.0.0.1")]
+                            ]),
+                            name: name,
+                            marketingUrl: url
+                        }))
+                }),
+            }))
+        }
+
+        const verifiers = await contract.getVerifiers();
+
+        for (const [name, url] of verifierConfig) {
+            const actualVerifier = verifiers.find(v => v.name === name)!;
+            const [pub_key, ipnum] = actualVerifier.pub_key_endpoints.entries().next().value;
+            
+            expect(ipnum).toEqual(ip2num("10.0.0.1"));
+            expect(pub_key.toString()).toEqual(new BN(kp3.publicKey).toString());
+            expect(actualVerifier.admin.toFriendly()).toEqual(user.toFriendly());
+            expect(actualVerifier.quorum).toEqual(7);
+            expect(actualVerifier.name).toEqual(name);
+            expect(actualVerifier.marketingUrl).toEqual(url);
+        }
+    });
 })
 
 function sha256BN(name:string) {
