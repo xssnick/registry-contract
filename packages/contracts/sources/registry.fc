@@ -78,8 +78,8 @@ const int   STAKE    = 10000000000000; ;; 10000 TON
         throw_if(410, coins_sent < STAKE);
         throw_if(419, storage::verifiers_num >= 100);
 
-        ;; return excess, ignore errors
-        send_msg(2, admin, coins_sent - STAKE, REGISTERED_TEXT);
+        ;; return excess
+        send_msg(1, admin, coins_sent - STAKE, REGISTERED_TEXT);
 
         storage::verifiers_num += 1;
     }
