@@ -41,11 +41,24 @@ export class RegistryLocal {
     async getVerifiersNum(): Promise<number> {
         let res = await this.contract.invokeGetMethod('get_verifiers_num', [])
         if (res.exit_code !== 0) {
-            throw new Error(`Unable to invoke get_verifier on contract`)
+            throw new Error(`Unable to invoke get_verifiers_num on contract`)
         }
         let [num] = res.result as [BN];
 
         return num.toNumber()
+    }
+    
+    async getVerifiers(): Promise<any> {
+        let res = await this.contract.invokeGetMethod('get_verifiers', [])
+        if (res.exit_code !== 0) {
+            throw new Error(`Unable to invoke get_verifiers on contract ${res.exit_code}`)
+        }
+        const [c] = res.result as [Slice];
+        // console.log(c.toCell().toString())
+        const d = c.readDict(256, s => s)
+        const a = Array.from(d.keys()).map(k => k)
+
+        return a;
     }
 
     //

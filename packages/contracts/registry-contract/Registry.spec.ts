@@ -537,6 +537,10 @@ describe('registry smc', () => {
         let body = excess.message.body.beginParse();
         expect(body.readUint(32).toNumber()).toEqual(0)
         expect(body.readBuffer(body.remaining/8).toString()).toEqual("You were successfully registered as a verifier")
+
+        const a = await contract.getVerifiers()
+        console.log(a, "shahar");
+
     })
 
     it('should not add new verifier, 100 limit', async () => {
